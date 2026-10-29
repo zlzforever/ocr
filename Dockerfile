@@ -3,7 +3,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends clang zlib1g-de
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 COPY src/Ocr.Api/Ocr.Api.csproj src/Ocr.Api/
-RUN dotnet restore src/Ocr.Api/Ocr.Api.csproj -r linux-x64
+RUN dotnet restore src/Ocr.Api/Ocr.Api.csproj -p:RuntimeIdentifier=linux-x64 -p:PublishAot=true
 COPY src/Ocr.Api/ src/Ocr.Api/
 RUN dotnet publish src/Ocr.Api/Ocr.Api.csproj -c Release -r linux-x64 --no-restore -o /app \
     -p:PublishAot=true -p:InvariantGlobalization=true -p:StripSymbols=true \
