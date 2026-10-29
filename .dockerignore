@@ -1,0 +1,8 @@
+**/bin/
+**/obj/
+.git/
+.multica/
+.opencode/
+.idea/
+.vs/
+AGENTS.md
