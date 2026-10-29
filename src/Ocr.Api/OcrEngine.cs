@@ -1,5 +1,5 @@
 using Sdcb.SimdPaddleOCR;
-using Sdcb.SimdPaddleOCR.Models.ChineseV6Tiny;
+using Sdcb.SimdPaddleOCR.Models.ChineseV6Medium;
 using StbImageSharp;
 
 namespace Ocr.Api;
@@ -10,7 +10,7 @@ internal static class OcrEngine
 {
     private const int MAX_IMAGE_BYTES = 10 * 1024 * 1024;
     private const long MAX_PIXELS = 20_000_000;
-    private static readonly Lazy<Task<PaddleOcrAll>> Engine = new(() => PaddleOcrAll.LoadAsync(ChineseV6TinyModels.Default));
+    private static readonly Lazy<Task<PaddleOcrAll>> Engine = new(() => PaddleOcrAll.LoadAsync(ChineseV6MediumModels.Default));
     private static readonly SemaphoreSlim InferenceLock = new(1, 1);
 
     /// <summary>Decodes an uploaded JPEG/PNG and recognizes its text.</summary>

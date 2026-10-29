@@ -1,6 +1,6 @@
 # OCR Web API
 
-基于 .NET 10 Minimal API Slim + SimdPaddleOCR 中文 V6 Tiny 模型。模型随程序发布，不依赖在线下载；仅支持 CPU 推理。首次识别会加载模型，耗时可能较长。
+基于 .NET 10 Minimal API Slim + SimdPaddleOCR 中文 V6 Medium 模型（该系列内置模型的最大档）。模型随程序发布，不依赖在线下载；仅支持 CPU 推理。首次识别会加载模型，耗时可能较长。
 
 ## 本地运行（普通 JIT）
 
