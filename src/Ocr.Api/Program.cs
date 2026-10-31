@@ -25,9 +25,9 @@ app.MapPost("/api/ocr", async Task<IResult> (HttpRequest request, CancellationTo
         return TypedResults.BadRequest("Image must be between 1 byte and 10 MB.");
     }
 
-    if (request.ContentType is not ("image/jpeg" or "image/png"))
+    if (request.ContentType is not "image/jpeg")
     {
-        return TypedResults.BadRequest("Content-Type must be image/jpeg or image/png.");
+        return TypedResults.BadRequest("Content-Type must be image/jpeg.");
     }
 
     OcrResponse? result = await OcrEngine.RecognizeAsync(request.Body, cancellationToken);
