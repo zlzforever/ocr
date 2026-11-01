@@ -9,7 +9,7 @@
   <ItemGroup>
     <PackageReference Include="Sdcb.SimdPaddleOCR" Version="2.0.0" />
     <PackageReference Include="Sdcb.SimdPaddleOCR.Models.ChineseV6Medium" Version="1.0.0" />
-    <PackageReference Include="StbImageSharp" Version="2.30.16" />
+    <PackageReference Include="Sdcb.SimdCodecs.Jpeg" Version="1.2.0" />
   </ItemGroup>
   
 </Project>

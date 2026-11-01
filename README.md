@@ -9,7 +9,7 @@ dotnet run --project src/Ocr.Api
 curl -X POST http://localhost:5270/api/ocr -H 'Content-Type: image/jpeg' --data-binary @sample.jpg
 ```
 
-`POST /api/ocr` 接收原始 JPEG/PNG 图片字节（非 multipart），返回 `{"text":"..."}`；空图、无效图片或超过 2000 万像素返回 400；请求体最多 10 MB（超过限制返回 413）。`GET /health` 返回 200。未配置认证，请在网关前加访问控制，不要直接暴露公网。
+`POST /api/ocr` 仅接收原始 JPEG 图片字节（非 multipart，使用 `Sdcb.SimdCodecs.Jpeg` 解码），返回 `{"text":"..."}`；PNG 等其他格式、空图、无效图片或超过 2000 万像素返回 400；请求体最多 10 MB（超过限制返回 413）。`GET /health` 返回 200。未配置认证，请在网关前加访问控制，不要直接暴露公网。
 
 ## Docker / 发布
 
