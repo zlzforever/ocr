@@ -6,7 +6,7 @@
 
 - 使用 SimdPaddleOCR 中文 V6 Medium 模型（当前模型包中最大版本），模型随应用发布，不依赖运行时下载。
 - 仅使用 CPU 推理；模型首次加载发生在第一次识别请求，首次请求耗时会明显增加。
-- 使用 `Sdcb.SimdCodecs.Jpeg` 解码，仅接受原始 JPEG 请求体，不接受 PNG、multipart/form-data 或 Base64 图片。
+- 接受原始 JPEG（.jpg、.jpeg）或 PNG 图片请求体，不接受 multipart/form-data 或 Base64 图片。
 - 单次请求最多 10 MB，图片最多 2,000 万像素。
 - 本地开发使用普通 JIT 模式；Docker 镜像使用 Native AOT 和精简运行时镜像。
 
@@ -16,7 +16,7 @@
 .
 ├── src/Ocr.Api/                 # Web API 和 OCR 推理代码
 │   ├── Program.cs               # HTTP 端点、请求限制和 JSON 配置
-│   └── OcrEngine.cs             # JPEG 解码、模型加载和推理
+│   └── OcrEngine.cs             # 图片解码、模型加载和推理
 ├── Dockerfile                   # linux/amd64 Native AOT 镜像
 ├── .github/workflows/docker.yml # Docker Hub 构建与推送流程
 ├── Ocr.sln                     # Visual Studio / dotnet 解决方案
@@ -71,15 +71,15 @@ ok
 
 ### `POST /api/ocr`
 
-识别一张 JPEG 图片中的文字。
+识别一张 JPEG 或 PNG 图片中的文字。
 
-| 项目 | 要求 |
-| --- | --- |
-| `Content-Type` | 必须为 `image/jpeg` |
-| 请求体 | JPEG 原始二进制数据，不是 multipart |
-| 请求体大小 | 1 字节至 10 MB |
-| 图片尺寸 | 不超过 2,000 万像素 |
-| 返回类型 | `application/json` |
+| 项目           | 要求                                |
+| -------------- | ----------------------------------- |
+| `Content-Type` | `image/jpeg` 或 `image/png`         |
+| 请求体         | JPEG 或 PNG 原始二进制数据，不是 multipart |
+| 请求体大小     | 1 字节至 10 MB                      |
+| 图片尺寸       | 不超过 2,000 万像素                 |
+| 返回类型       | `application/json`                  |
 
 请求示例：
 
@@ -102,13 +102,13 @@ curl --fail-with-body -sS \
 
 常见错误：
 
-| HTTP 状态码 | 场景 |
-| --- | --- |
-| `400 Bad Request` | `Content-Type` 不正确、空请求体、JPEG 无效或图片超过 2,000 万像素 |
-| `413 Payload Too Large` | 请求体超过服务器的 10 MB 限制 |
-| `500 Internal Server Error` | 服务端 OCR 推理失败 |
+| HTTP 状态码                 | 场景                                                              |
+| --------------------------- | ----------------------------------------------------------------- |
+| `400 Bad Request`           | `Content-Type` 不正确、空请求体、图片无效或图片超过 2,000 万像素 |
+| `413 Payload Too Large`     | 请求体超过服务器的 10 MB 限制                                     |
+| `500 Internal Server Error` | 服务端 OCR 推理失败                                               |
 
-错误响应可能是纯文本。生产环境应记录服务端日志，并由调用方根据 HTTP 状态码处理失败请求。
+400 响应会记录不包含图片内容的 Warning 日志。错误响应可能是纯文本，调用方应根据 HTTP 状态码处理失败请求。
 
 ### `GET /health`
 
@@ -140,6 +140,12 @@ curl --fail-with-body -sS \
 
 当前 Dockerfile 的发布目标为 `linux/amd64`。镜像构建阶段启用 Native AOT、裁剪符号和尺寸优化，运行阶段使用无 shell 的 `runtime-deps` chiseled 镜像；本地 `dotnet run` 不受这些 Docker 发布参数影响。
 
+## 部署
+
+```
+docker run --name ocr-api -d -p 38246:8080 docker.1ms.run/zlzforever/ocr
+```
+
 ## GitHub Actions 发布
 
 `.github/workflows/docker.yml` 在以下情况下构建并推送镜像：
@@ -149,10 +155,10 @@ curl --fail-with-body -sS \
 
 需要在 GitHub 仓库的 Actions secrets 中配置：
 
-| Secret | 用途 |
-| --- | --- |
-| `DOCKERHUB_USERNAME` | Docker Hub 用户名 |
-| `DOCKERHUB_TOKEN` | Docker Hub Access Token |
+| Secret               | 用途                    |
+| -------------------- | ----------------------- |
+| `DOCKERHUB_USERNAME` | Docker Hub 用户名       |
+| `DOCKERHUB_TOKEN`    | Docker Hub Access Token |
 
 工作流只构建 `linux/amd64`，并推送以下标签到 `zlzforever/ocr`：
 

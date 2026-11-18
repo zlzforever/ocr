@@ -1,11 +1,12 @@
 using Sdcb.SimdPaddleOCR;
 using Sdcb.SimdPaddleOCR.Models.ChineseV6Medium;
 using Sdcb.SimdCodecs.Jpeg;
+using Sdcb.SimdCodecs.Png;
 
 namespace Ocr.Api;
 
 /// <summary>Loads the bundled Chinese OCR model once and serializes inference on the shared engine.</summary>
-/// <remarks>Used by the image endpoint; depends on SimdPaddleOCR and Sdcb.SimdCodecs.Jpeg.</remarks>
+/// <remarks>Used by the image endpoint; depends on SimdPaddleOCR and the JPEG and PNG SimdCodecs packages.</remarks>
 internal static class OcrEngine
 {
     private const int MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -13,12 +14,13 @@ internal static class OcrEngine
     private static readonly Lazy<Task<PaddleOcrAll>> Engine = new(() => PaddleOcrAll.LoadAsync(ChineseV6MediumModels.Default));
     private static readonly SemaphoreSlim InferenceLock = new(1, 1);
 
-    /// <summary>Decodes an uploaded JPEG and recognizes its text.</summary>
+    /// <summary>Decodes an uploaded JPEG or PNG and recognizes its text.</summary>
     /// <param name="stream">Readable image body stream, at most 10 MB.</param>
+    /// <param name="contentType">Expected image MIME type, either image/jpeg or image/png.</param>
     /// <param name="cancellationToken">Cancellation from the request.</param>
     /// <returns>Recognized text or null for malformed/oversized images.</returns>
     /// <exception cref="IOException">The body cannot be read.</exception>
-    internal static async Task<OcrResponse?> RecognizeAsync(Stream stream, CancellationToken cancellationToken)
+    internal static async Task<OcrResponse?> RecognizeAsync(Stream stream, string contentType, CancellationToken cancellationToken)
     {
         // Kestrel limits the request body; inspect metadata before allocating decoded pixels.
         using var buffer = new MemoryStream();
@@ -31,28 +33,57 @@ internal static class OcrEngine
         try
         {
             ReadOnlySpan<byte> content = buffer.GetBuffer().AsSpan(0, (int)buffer.Length);
-            // The decoder can salvage truncated scans; require the JPEG end marker before decoding.
-            if (content.Length < 5 || content[0] != 0xff || content[1] != 0xd8 || content[2] != 0xff ||
-                content[^2] != 0xff || content[^1] != 0xd9)
+            int width;
+            int height;
+            byte[] rgba;
+            if (contentType == "image/jpeg")
+            {
+                // The decoder can salvage truncated scans; require the JPEG end marker before decoding.
+                if (content.Length < 5 || content[0] != 0xff || content[1] != 0xd8 || content[2] != 0xff ||
+                    content[^2] != 0xff || content[^1] != 0xd9 ||
+                    !JpegDecoder.TryReadInfo(content, out JpegInfo? info) ||
+                    info.Width <= 0 || info.Height <= 0 || (long)info.Width * info.Height > MAX_PIXELS)
+                {
+                    return null;
+                }
+
+                width = info.Width;
+                height = info.Height;
+                rgba = new byte[width * height * 4];
+                JpegDecoder.DecodeTo(content, rgba);
+            }
+            else if (contentType == "image/png")
+            {
+                // Read PNG dimensions before decoding to enforce the pixel limit before allocating.
+                if (content.Length < 45 ||
+                    !content[..8].SequenceEqual(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 }) ||
+                    !content.Slice(8, 8).SequenceEqual(new byte[] { 0, 0, 0, 13, 73, 72, 68, 82 }) ||
+                    !content[^12..].SequenceEqual(new byte[] { 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130 }) ||
+                    !PngImageDecoder.TryReadInfo(content, out var info) ||
+                    info.Width <= 0 || info.Height <= 0 || (long)info.Width * info.Height > MAX_PIXELS)
+                {
+                    return null;
+                }
+
+                width = info.Width;
+                height = info.Height;
+                rgba = new byte[width * height * 4];
+                if (!PngImageDecoder.TryDecodeIntoRgba8(content, rgba))
+                {
+                    return null;
+                }
+            }
+            else
             {
                 return null;
             }
-
-            if (!JpegDecoder.TryReadInfo(content, out JpegInfo? info) ||
-                info.Width <= 0 || info.Height <= 0 || (long)info.Width * info.Height > MAX_PIXELS)
-            {
-                return null;
-            }
-
-            byte[] rgba = new byte[info.Width * info.Height * 4];
-            JpegDecoder.DecodeTo(content, rgba);
 
             // The model is shared across requests; prevent concurrent inference on its mutable sessions.
             await InferenceLock.WaitAsync(cancellationToken);
             try
             {
                 PaddleOcrAll engine = await Engine.Value;
-                return new OcrResponse { Text = engine.Run(rgba, info.Width, info.Height,
+                return new OcrResponse { Text = engine.Run(rgba, width, height,
                     format: ImagePixelFormat.Rgba32).Text };
             }
             finally
