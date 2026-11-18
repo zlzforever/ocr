@@ -75,11 +75,13 @@ ok
 
 | 项目           | 要求                                |
 | -------------- | ----------------------------------- |
-| `Content-Type` | `image/jpeg` 或 `image/png`         |
+| `Content-Type` | 建议为 `image/jpeg` 或 `image/png`  |
 | 请求体         | JPEG 或 PNG 原始二进制数据，不是 multipart |
 | 请求体大小     | 1 字节至 10 MB                      |
 | 图片尺寸       | 不超过 2,000 万像素                 |
 | 返回类型       | `application/json`                  |
+
+服务优先按 `Content-Type` 识别图片；读取或解码失败时会记录日志并尝试另一种受支持的格式。`Content-Type` 缺失或不是支持的类型时，会依次尝试 JPEG 和 PNG。请求进入 OCR 路由时会记录日志，不包含图片内容或识别文字。
 
 请求示例：
 
@@ -104,7 +106,7 @@ curl --fail-with-body -sS \
 
 | HTTP 状态码                 | 场景                                                              |
 | --------------------------- | ----------------------------------------------------------------- |
-| `400 Bad Request`           | `Content-Type` 不正确、空请求体、图片无效或图片超过 2,000 万像素 |
+| `400 Bad Request`           | 空请求体、图片无效或图片超过 2,000 万像素 |
 | `413 Payload Too Large`     | 请求体超过服务器的 10 MB 限制                                     |
 | `500 Internal Server Error` | 服务端 OCR 推理失败                                               |
 

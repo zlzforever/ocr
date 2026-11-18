@@ -20,19 +20,15 @@ app.MapGet("/health", () => TypedResults.Ok("ok"));
 
 app.MapPost("/api/ocr", async Task<IResult> (HttpRequest request, CancellationToken cancellationToken) =>
 {
+    app.Logger.LogInformation("OCR request received. Content type: {ContentType}; content length: {ContentLength}.",
+        request.ContentType, request.ContentLength);
     if (request.ContentLength is 0 or > 10 * 1024 * 1024)
     {
         app.Logger.LogWarning("OCR request rejected: invalid content length {ContentLength}.", request.ContentLength);
         return TypedResults.BadRequest("Image must be between 1 byte and 10 MB.");
     }
 
-    if (request.ContentType is not ("image/jpeg" or "image/png"))
-    {
-        app.Logger.LogWarning("OCR request rejected: unsupported content type {ContentType}.", request.ContentType);
-        return TypedResults.BadRequest("Content-Type must be image/jpeg or image/png.");
-    }
-
-    OcrResponse? result = await OcrEngine.RecognizeAsync(request.Body, request.ContentType, cancellationToken);
+    OcrResponse? result = await OcrEngine.RecognizeAsync(request.Body, request.ContentType, app.Logger, cancellationToken);
     if (result is null)
     {
         app.Logger.LogWarning("OCR request rejected: invalid image or image exceeds size or pixel limits. Content type: {ContentType}; content length: {ContentLength}.",
